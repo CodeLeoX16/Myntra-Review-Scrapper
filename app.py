@@ -4,19 +4,6 @@ from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
 from src.scrapper.scrape import ScrapeReviews
 
-# Page configuration with modern theme
-st.set_page_config(
-    page_title="Myntra Review Scraper",
-    page_icon="🛍️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://github.com',
-        'Report a bug': "https://github.com",
-        'About': "# Myntra Review Scraper\nA powerful tool to extract and analyze customer reviews from Myntra"
-    }
-)
-
 # Custom CSS for enhanced styling
 st.markdown("""
     <style>
@@ -181,7 +168,7 @@ def form_input():
     btn_col1, btn_col2, btn_col3 = st.columns([2, 2, 1])
     
     with btn_col1:
-        scrape_button = st.button("🚀 Start Scraping", use_container_width=True, key="scrape_btn")
+        scrape_button = st.button("🚀 Start Scraping", width='stretch', key="scrape_btn")
     
     if scrape_button:
         if not product.strip():
@@ -248,7 +235,7 @@ def form_input():
                     
                     st.markdown("---")
                     st.markdown("#### Data Preview")
-                    st.dataframe(scrapped_data, use_container_width=True, height=400)
+                    st.dataframe(scrapped_data, width='stretch', height=400)
                     
                     # Download button
                     csv = scrapped_data.to_csv(index=False)
@@ -257,7 +244,7 @@ def form_input():
                         data=csv,
                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                         mime="text/csv",
-                        use_container_width=True
+                        width='stretch'
                     )
                     
                 else:
@@ -293,6 +280,5 @@ with st.sidebar:
             st.write(f"**Columns:** {len(data.columns)}")
 
 
-if __name__ == "__main__":
-    form_input()
-
+# Run the main function
+form_input()
