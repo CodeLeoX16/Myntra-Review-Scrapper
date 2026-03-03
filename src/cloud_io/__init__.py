@@ -13,6 +13,15 @@ class MongoIO:
         if MongoIO.mongo_client is None:
             mongo_db_url = os.getenv(MONGODB_URL_KEY)
             if mongo_db_url is None:
+                # Helpful for local runs: load variables from a .env file if present.
+                try:
+                    from dotenv import load_dotenv
+
+                    load_dotenv()
+                    mongo_db_url = os.getenv(MONGODB_URL_KEY)
+                except Exception:
+                    pass
+            if mongo_db_url is None:
                 raise Exception(f"Environment key: {MONGODB_URL_KEY} is not set.")
             MongoIO.mongo_client = MongoClient(mongo_db_url)
             MongoIO.mongo_db = MongoIO.mongo_client[MONGO_DATABASE_NAME]
