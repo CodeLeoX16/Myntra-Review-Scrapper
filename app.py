@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import os
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
 
@@ -278,35 +279,51 @@ def form_input():
                     or "blocked" in error_text.lower()
                 )
                 if blocked_signals:
-                    try:
-                        mongoio = MongoIO()
-                        existing = mongoio.get_reviews(product_name=product)
-                        if existing:
-                            fallback_df = pd.DataFrame(existing)
-                            if not fallback_df.empty:
+                    mongo_url = os.getenv("MONGODB_URL")
+                    if not mongo_url:
+                        st.info(
+                            "Live scraping is blocked on Streamlit Cloud for Myntra. "
+                            "To show saved reviews here, set `MONGODB_URL` in Streamlit Cloud Secrets (App settings → Secrets)."
+                        )
+                    else:
+                        try:
+                            mongoio = MongoIO()
+                            existing = mongoio.get_reviews(product_name=product)
+
+                            if not existing:
                                 st.warning(
-                                    "Live scraping is blocked from this server. "
-                                    "Showing previously saved reviews from MongoDB instead."
+                                    "Live scraping is blocked, and no saved reviews were found in MongoDB for this product name. "
+                                    "Tip: run the scraper locally once (where Myntra allows it) to populate MongoDB, then the Cloud app can display that saved data."
                                 )
-                                st.session_state["data"] = True
-                                st.session_state["latest_scrapped_data"] = fallback_df
+                            else:
+                                fallback_df = pd.DataFrame(existing)
+                                if fallback_df.empty:
+                                    st.warning(
+                                        "Live scraping is blocked, and the saved MongoDB data for this product is empty."
+                                    )
+                                else:
+                                    st.warning(
+                                        "Live scraping is blocked from this server. "
+                                        "Showing previously saved reviews from MongoDB instead."
+                                    )
+                                    st.session_state["data"] = True
+                                    st.session_state["latest_scrapped_data"] = fallback_df
 
-                                st.markdown("---")
-                                st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
-                                st.dataframe(fallback_df, use_container_width=True, height=400)
+                                    st.markdown("---")
+                                    st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
+                                    st.dataframe(fallback_df, use_container_width=True, height=400)
 
-                                csv = fallback_df.to_csv(index=False)
-                                st.download_button(
-                                    label="📥 Download as CSV",
-                                    data=csv,
-                                    file_name=f"{product.replace(' ', '_')}_reviews.csv",
-                                    mime="text/csv",
-                                    use_container_width=True,
-                                )
-                                progress_bar.progress(100)
-                    except Exception:
-                        # If MongoDB is not configured or has no data, keep the original error only.
-                        pass
+                                    csv = fallback_df.to_csv(index=False)
+                                    st.download_button(
+                                        label="📥 Download as CSV",
+                                        data=csv,
+                                        file_name=f"{product.replace(' ', '_')}_reviews.csv",
+                                        mime="text/csv",
+                                        use_container_width=True,
+                                    )
+                                    progress_bar.progress(100)
+                        except Exception as mongo_e:
+                            st.warning(f"MongoDB fallback failed: {str(mongo_e)[:200]}")
                 status_text.empty()
 
 
