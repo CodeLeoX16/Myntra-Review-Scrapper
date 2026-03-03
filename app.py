@@ -266,7 +266,7 @@ def form_input():
                     
             except Exception as e:
                 progress_bar.progress(0)
-                st.error(f"❌ Error during scraping: {str(e)[:200]}")
+                st.error(f"❌ Error during scraping: {str(e)[:500]}")
                 status_text.empty()
 
 

@@ -66,6 +66,7 @@ class ScrapeReviews:
     def scrape_product_urls(self, product_name):
         try:
             from selenium.webdriver.common.by import By
+            from selenium.common.exceptions import TimeoutException
             from selenium.webdriver.support.wait import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
 
@@ -78,9 +79,29 @@ class ScrapeReviews:
                 f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
             )
 
-            WebDriverWait(self.driver, 15).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "ul.results-base"))
-            )
+            try:
+                WebDriverWait(self.driver, 30).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "ul.results-base"))
+                )
+            except TimeoutException:
+                myntra_text = self.driver.page_source
+                if self._looks_blocked(myntra_text):
+                    raise Exception(
+                        "Myntra blocked the request (captcha/access denied). "
+                        "This often happens on Streamlit Cloud headless browsers. Try running locally."
+                    )
+
+                title = ""
+                try:
+                    title = self.driver.title or ""
+                except Exception:
+                    pass
+
+                raise Exception(
+                    "Timed out waiting for Myntra search results to load. "
+                    "This can happen due to slow rendering, page structure changes, or anti-bot protections. "
+                    f"Page title: {title!r}"
+                )
 
             myntra_text = self.driver.page_source
             if self._looks_blocked(myntra_text):
@@ -102,6 +123,8 @@ class ScrapeReviews:
             return product_urls
 
         except Exception as e:
+            if isinstance(e, CustomException):
+                raise
             raise CustomException(e, sys)
 
     def extract_reviews(self, product_link):
@@ -161,6 +184,8 @@ class ScrapeReviews:
                 return None
             return product_reviews
         except Exception as e:
+            if isinstance(e, CustomException):
+                raise
             raise CustomException(e, sys)
         
     def scroll_to_load_reviews(self):
@@ -266,6 +291,8 @@ class ScrapeReviews:
             return review_data
 
         except Exception as e:
+            if isinstance(e, CustomException):
+                raise
             raise CustomException(e, sys)
         
     
@@ -331,4 +358,6 @@ class ScrapeReviews:
     
 
         except Exception as e:
+            if isinstance(e, CustomException):
+                raise
             raise CustomException(e, sys)
