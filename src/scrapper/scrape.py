@@ -19,6 +19,14 @@ class ScrapeReviews:
 
         options = Options()
 
+        options.add_argument("--window-size=1920,1080")
+        options.add_argument(
+            "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+
         # Streamlit Community Cloud runs on Linux where Chrome must be headless.
         # Keep Windows behavior unchanged.
         if os.name != "nt":
@@ -37,11 +45,30 @@ class ScrapeReviews:
         service = Service(executable_path=chromedriver_path) if chromedriver_path else Service()
         self.driver = webdriver.Chrome(service=service, options=options)
 
+        # Give dynamic pages time to render.
+        self.driver.implicitly_wait(8)
+
         self.product_name = product_name
         self.no_of_products = no_of_products
 
+    @staticmethod
+    def _looks_blocked(page_source: str) -> bool:
+        if not page_source:
+            return False
+        text = page_source.lower()
+        return (
+            "access denied" in text
+            or "captcha" in text
+            or "verify you are a human" in text
+            or "request blocked" in text
+        )
+
     def scrape_product_urls(self, product_name):
         try:
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.wait import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+
             search_string = product_name.replace(" ","-")
             # no_of_products = int(self.request.form['prod_no'])
 
@@ -50,9 +77,19 @@ class ScrapeReviews:
             self.driver.get(
                 f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
             )
+
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "ul.results-base"))
+            )
+
             myntra_text = self.driver.page_source
+            if self._looks_blocked(myntra_text):
+                raise Exception(
+                    "Myntra blocked the request (captcha/access denied). "
+                    "This often happens on Streamlit Cloud headless browsers. Try running locally."
+                )
             myntra_html = bs(myntra_text, "html.parser")
-            pclass = myntra_html.findAll("ul", {"class": "results-base"})
+            pclass = myntra_html.find_all("ul", {"class": "results-base"})
 
             product_urls = []
             for i in pclass:
@@ -69,25 +106,56 @@ class ScrapeReviews:
 
     def extract_reviews(self, product_link):
         try:
+            from selenium.webdriver.common.by import By
+            from selenium.webdriver.support.wait import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
+
             productLink = "https://www.myntra.com/" + product_link
             self.driver.get(productLink)
             prodRes = self.driver.page_source
+            if self._looks_blocked(prodRes):
+                raise Exception(
+                    "Myntra blocked the request (captcha/access denied). "
+                    "This often happens on Streamlit Cloud headless browsers. Try running locally."
+                )
+
+            # Wait for the product page to render key elements.
+            try:
+                WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "title"))
+                )
+            except Exception:
+                pass
+
             prodRes_html = bs(prodRes, "html.parser")
-            title_h = prodRes_html.findAll("title")
+            title_h = prodRes_html.find_all("title")
 
             self.product_title = title_h[0].text
 
-            overallRating = prodRes_html.findAll(
+            overallRating = prodRes_html.find_all(
                 "div", {"class": "index-overallRating"}
             )
             for i in overallRating:
                 self.product_rating_value = i.find("div").text
-            price = prodRes_html.findAll("span", {"class": "pdp-price"})
+            price = prodRes_html.find_all("span", {"class": "pdp-price"})
             for i in price:
                 self.product_price = i.text
             product_reviews = prodRes_html.find(
                 "a", {"class": "detailed-reviews-allReviews"}
             )
+
+            if not product_reviews:
+                # Some pages lazy-load the reviews link. Try waiting briefly.
+                try:
+                    WebDriverWait(self.driver, 8).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "a.detailed-reviews-allReviews"))
+                    )
+                    prodRes_html = bs(self.driver.page_source, "html.parser")
+                    product_reviews = prodRes_html.find(
+                        "a", {"class": "detailed-reviews-allReviews"}
+                    )
+                except Exception:
+                    pass
 
             if not product_reviews:
                 return None
@@ -120,7 +188,7 @@ class ScrapeReviews:
 
 
 
-    def extract_products(self, product_reviews: list):
+    def extract_products(self, product_reviews):
         try:
             t2 = product_reviews["href"]
             Review_link = "https://www.myntra.com" + t2
@@ -131,18 +199,21 @@ class ScrapeReviews:
             review_page = self.driver.page_source
 
             review_html = bs(review_page, "html.parser")
-            review = review_html.findAll(
+            review = review_html.find_all(
                 "div", {"class": "detailed-reviews-userReviewsContainer"}
             )
 
+            user_rating = []
+            user_comment = []
+            user_name = []
             for i in review:
-                user_rating = i.findAll(
+                user_rating = i.find_all(
                     "div", {"class": "user-review-main user-review-showRating"}
                 )
-                user_comment = i.findAll(
+                user_comment = i.find_all(
                     "div", {"class": "user-review-reviewTextWrapper"}
                 )
-                user_name = i.findAll("div", {"class": "user-review-left"})
+                user_name = i.find_all("div", {"class": "user-review-left"})
 
             reviews = []
             for i in range(len(user_rating)):
@@ -199,7 +270,7 @@ class ScrapeReviews:
         
     
     def skip_products(self, search_string, no_of_products, skip_index):
-        product_urls: list = self.scrape_product_urls(search_string, no_of_products + 1)
+        product_urls: list = self.scrape_product_urls(product_name=search_string)
 
         product_urls.pop(skip_index)
 
