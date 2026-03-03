@@ -198,7 +198,7 @@ def form_input():
     
     with btn_col1:
         button_label = "📥 Load Saved Reviews" if cloud_read_only_mode else "🚀 Start Scraping"
-        scrape_button = st.button(button_label, width="stretch", key="scrape_btn")
+        scrape_button = st.button(button_label, use_container_width=True, key="scrape_btn")
     
     if scrape_button:
         if not product.strip():
@@ -260,7 +260,7 @@ def form_input():
 
                 st.markdown("---")
                 st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
-                st.dataframe(fallback_df, width="stretch", height=400)
+                st.dataframe(fallback_df, use_container_width=True, height=400)
 
                 csv = fallback_df.to_csv(index=False)
                 st.download_button(
@@ -268,7 +268,7 @@ def form_input():
                     data=csv,
                     file_name=f"{product.replace(' ', '_')}_reviews.csv",
                     mime="text/csv",
-                    width="stretch",
+                    use_container_width=True,
                 )
                 return
             except Exception as mongo_e:
@@ -349,7 +349,7 @@ def form_input():
                     
                     st.markdown("---")
                     st.markdown("#### Data Preview")
-                    st.dataframe(scrapped_data, width="stretch", height=400)
+                    st.dataframe(scrapped_data, use_container_width=True, height=400)
                     
                     # Download button
                     csv = scrapped_data.to_csv(index=False)
@@ -358,7 +358,7 @@ def form_input():
                         data=csv,
                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                         mime="text/csv",
-                        width="stretch"
+                        use_container_width=True
                     )
                     
                 else:
@@ -437,7 +437,7 @@ def form_input():
 
                                     st.markdown("---")
                                     st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
-                                    st.dataframe(fallback_df, width="stretch", height=400)
+                                    st.dataframe(fallback_df, use_container_width=True, height=400)
 
                                     csv = fallback_df.to_csv(index=False)
                                     st.download_button(
@@ -445,7 +445,7 @@ def form_input():
                                         data=csv,
                                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                                         mime="text/csv",
-                                        width="stretch",
+                                        use_container_width=True,
                                     )
                                     progress_bar.progress(100)
                         except Exception as mongo_e:
