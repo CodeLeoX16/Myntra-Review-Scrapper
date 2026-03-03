@@ -137,7 +137,7 @@ def create_analysis_page(review_data: pd.DataFrame):
         
         with tab1:
             st.subheader("Data Overview")
-            st.dataframe(review_data, use_container_width=True, height=500)
+            st.dataframe(review_data, width="stretch", height=500)
             
             # Download button
             csv = review_data.to_csv(index=False)
@@ -146,7 +146,7 @@ def create_analysis_page(review_data: pd.DataFrame):
                 data=csv,
                 file_name="reviews_analysis.csv",
                 mime="text/csv",
-                use_container_width=True
+                width="stretch"
             )
         
         with tab2:
@@ -211,7 +211,7 @@ def create_analysis_page(review_data: pd.DataFrame):
                                     color_continuous_scale='Viridis',
                                     height=400)
                         fig.update_layout(showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     else:
                         st.warning("No rating data available")
                 except Exception as e:
@@ -240,7 +240,7 @@ def create_analysis_page(review_data: pd.DataFrame):
                                     color_continuous_scale='Blues',
                                     height=400)
                         fig.update_layout(showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     else:
                         st.warning("No product data available")
                 except Exception as e:
@@ -273,7 +273,7 @@ def create_analysis_page(review_data: pd.DataFrame):
                                     color_continuous_scale='Reds',
                                     height=400)
                         fig.update_layout(showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     else:
                         st.warning("No user data available")
                 except Exception as e:
@@ -317,7 +317,7 @@ def create_analysis_page(review_data: pd.DataFrame):
                                     color_continuous_scale='Greens',
                                     height=350)
                         fig.update_layout(showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, width="stretch")
                     else:
                         st.warning("No comment data available")
                 except Exception as e:
@@ -380,6 +380,15 @@ try:
             else:
                 st.info("ℹ️ Using current session data (MongoDB unavailable)")
         
+        # Normalize MongoDB results (list[dict]) into a DataFrame.
+        if isinstance(data, list):
+            data = pd.DataFrame(data)
+        elif data is not None and not isinstance(data, pd.DataFrame):
+            try:
+                data = pd.DataFrame(data)
+            except Exception:
+                data = None
+
         create_analysis_page(data)
     
     else:

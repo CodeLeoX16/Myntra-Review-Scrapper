@@ -1,9 +1,5 @@
 import streamlit as st
 
-# Import page functions
-from pages import generate_analysis
-import app
-
 # Page configuration
 st.set_page_config(
     page_title="Myntra Review Scraper",

@@ -2,6 +2,10 @@
 
 A powerful, intelligent web scraping and analytics platform that extracts customer reviews from Myntra and provides comprehensive sentiment analysis and insights. Built with Streamlit, Selenium, and MongoDB.
 
+## 🔗 Live Demo
+
+https://myntra-review-scrapper-h8ewjgrnqspobh5wcnkaxi.streamlit.app/
+
 ## 📚 Table of Contents
 - [Features](#features)
 - [Project Overview](#project-overview)
@@ -254,6 +258,11 @@ MyntraReviewScrapperSystem/
 ---
 
 ## 🐛 Troubleshooting
+
+### Note on Streamlit Community Cloud
+
+Live scraping is restricted on cloud environments due to e-commerce anti-bot protections.
+The deployed version reads from MongoDB populated via a local scraper or scheduled job.
 
 ### Problem: "Environment key: MONGODB_URL is not set"
 **Solution:**

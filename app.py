@@ -3,6 +3,7 @@ import streamlit as st
 import os
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
+from src.utils import fetch_product_names_from_cloud
 
 # Custom CSS for enhanced styling
 st.markdown("""
@@ -136,20 +137,48 @@ with col2:
 
 st.markdown("---")
 
-st.session_state["data"] = False
+if "data" not in st.session_state:
+    st.session_state["data"] = False
 
 
 def form_input():
+    # Streamlit Community Cloud runs on Linux; Myntra is commonly blocked there.
+    # In that environment we default to reading previously saved data from MongoDB.
+    cloud_read_only_mode = os.name != "nt" or os.getenv("FORCE_MONGODB_READ", "").strip() in {"1", "true", "True"}
+
     # Create two columns for better layout
     col1, col2 = st.columns([2, 1])
     
     with col1:
         st.subheader("📋 Search Configuration")
-        product = st.text_input(
-            "🔍 Product Name",
-            placeholder="Enter product name (e.g., 'blue shirt', 'running shoes')",
-            help="Type the product name you want to scrape reviews for"
-        )
+
+        product = ""
+        if cloud_read_only_mode:
+            saved_products: list[str] = []
+            try:
+                saved_products = fetch_product_names_from_cloud()
+            except Exception:
+                saved_products = []
+
+            if saved_products:
+                selected_product = st.selectbox(
+                    "📂 Saved Product (MongoDB)",
+                    options=saved_products,
+                    help="On Streamlit Cloud, the app loads previously saved reviews from MongoDB",
+                )
+                product = selected_product
+            else:
+                product = st.text_input(
+                    "🔍 Product Name",
+                    placeholder="Enter saved product name (must match MongoDB collection)",
+                    help="On Streamlit Cloud, live scraping is restricted; enter a product name already saved in MongoDB",
+                )
+        else:
+            product = st.text_input(
+                "🔍 Product Name",
+                placeholder="Enter product name (e.g., 'blue shirt', 'running shoes')",
+                help="Type the product name you want to scrape reviews for",
+            )
     
     with col2:
         st.subheader("📊 Settings")
@@ -168,12 +197,83 @@ def form_input():
     btn_col1, btn_col2, btn_col3 = st.columns([2, 2, 1])
     
     with btn_col1:
-        scrape_button = st.button("🚀 Start Scraping", use_container_width=True, key="scrape_btn")
+        button_label = "📥 Load Saved Reviews" if cloud_read_only_mode else "🚀 Start Scraping"
+        scrape_button = st.button(button_label, width="stretch", key="scrape_btn")
     
     if scrape_button:
         if not product.strip():
             st.error("❌ Please enter a product name to search!")
             return
+
+        # In cloud/read-only mode, skip Selenium scraping entirely.
+        if cloud_read_only_mode:
+            mongo_url = os.getenv("MONGODB_URL")
+            if not mongo_url:
+                try:
+                    mongo_url = st.secrets.get("MONGODB_URL")
+                except Exception:
+                    mongo_url = None
+            if not mongo_url:
+                st.info(
+                    "To use the deployed app, set `MONGODB_URL` in Streamlit Cloud Secrets "
+                    "(App settings → Secrets). Then the app can load previously saved reviews."
+                )
+                return
+
+            try:
+                mongoio = MongoIO()
+                existing = mongoio.get_reviews(product_name=product)
+                if not existing:
+                    try:
+                        if mongoio.mongo_db is not None:
+                            available = mongoio.mongo_db.list_collection_names()
+                        else:
+                            available = []
+                    except Exception:
+                        available = []
+
+                    requested_collection = product.replace(" ", "_")
+                    if available and requested_collection not in set(available):
+                        shown = [name.replace("_", " ") for name in available[:25]]
+                        st.warning(
+                            "No saved reviews were found because this product name does not match any saved MongoDB collection. "
+                            "Select a saved product from the dropdown (if available) or use one of the saved names shown below."
+                        )
+                        st.info(
+                            f"Saved products found: {len(available)}\n\n" + "\n".join(f"- {p}" for p in shown)
+                        )
+                    else:
+                        st.warning(
+                            "No saved reviews were found in MongoDB for this product name. "
+                            "Tip: run the scraper locally once to populate MongoDB, then refresh this app."
+                        )
+                    return
+
+                fallback_df = pd.DataFrame(existing)
+                if fallback_df.empty:
+                    st.warning("Saved MongoDB data exists but is empty for this product.")
+                    return
+
+                st.session_state["data"] = True
+                st.session_state["latest_scrapped_data"] = fallback_df
+                st.session_state[SESSION_PRODUCT_KEY] = product
+
+                st.markdown("---")
+                st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
+                st.dataframe(fallback_df, width="stretch", height=400)
+
+                csv = fallback_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download as CSV",
+                    data=csv,
+                    file_name=f"{product.replace(' ', '_')}_reviews.csv",
+                    mime="text/csv",
+                    width="stretch",
+                )
+                return
+            except Exception as mongo_e:
+                st.error(f"❌ Could not load from MongoDB: {str(mongo_e)[:300]}")
+                return
         
         # Progress section
         with st.container():
@@ -211,6 +311,7 @@ def form_input():
                 if scrapped_data is not None and not scrapped_data.empty:
                     st.session_state["data"] = True
                     st.session_state["latest_scrapped_data"] = scrapped_data
+                    st.session_state[SESSION_PRODUCT_KEY] = product
                     
                     # Try to store in MongoDB, but don't crash if it fails
                     try:
@@ -248,7 +349,7 @@ def form_input():
                     
                     st.markdown("---")
                     st.markdown("#### Data Preview")
-                    st.dataframe(scrapped_data, use_container_width=True, height=400)
+                    st.dataframe(scrapped_data, width="stretch", height=400)
                     
                     # Download button
                     csv = scrapped_data.to_csv(index=False)
@@ -257,7 +358,7 @@ def form_input():
                         data=csv,
                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                         mime="text/csv",
-                        use_container_width=True
+                        width="stretch"
                     )
                     
                 else:
@@ -281,6 +382,11 @@ def form_input():
                 if blocked_signals:
                     mongo_url = os.getenv("MONGODB_URL")
                     if not mongo_url:
+                        try:
+                            mongo_url = st.secrets.get("MONGODB_URL")
+                        except Exception:
+                            mongo_url = None
+                    if not mongo_url:
                         st.info(
                             "Live scraping is blocked on Streamlit Cloud for Myntra. "
                             "To show saved reviews here, set `MONGODB_URL` in Streamlit Cloud Secrets (App settings → Secrets)."
@@ -291,10 +397,29 @@ def form_input():
                             existing = mongoio.get_reviews(product_name=product)
 
                             if not existing:
-                                st.warning(
-                                    "Live scraping is blocked, and no saved reviews were found in MongoDB for this product name. "
-                                    "Tip: run the scraper locally once (where Myntra allows it) to populate MongoDB, then the Cloud app can display that saved data."
-                                )
+                                try:
+                                    if mongoio.mongo_db is not None:
+                                        available = mongoio.mongo_db.list_collection_names()
+                                    else:
+                                        available = []
+                                except Exception:
+                                    available = []
+
+                                requested_collection = product.replace(" ", "_")
+                                if available and requested_collection not in set(available):
+                                    shown = [name.replace("_", " ") for name in available[:25]]
+                                    st.warning(
+                                        "Live scraping is blocked, and this product name does not match any saved MongoDB collection. "
+                                        "Use a saved product name shown below (or populate MongoDB locally)."
+                                    )
+                                    st.info(
+                                        f"Saved products found: {len(available)}\n\n" + "\n".join(f"- {p}" for p in shown)
+                                    )
+                                else:
+                                    st.warning(
+                                        "Live scraping is blocked, and no saved reviews were found in MongoDB for this product name. "
+                                        "Tip: run the scraper locally once (where Myntra allows it) to populate MongoDB, then the Cloud app can display that saved data."
+                                    )
                             else:
                                 fallback_df = pd.DataFrame(existing)
                                 if fallback_df.empty:
@@ -308,10 +433,11 @@ def form_input():
                                     )
                                     st.session_state["data"] = True
                                     st.session_state["latest_scrapped_data"] = fallback_df
+                                    st.session_state[SESSION_PRODUCT_KEY] = product
 
                                     st.markdown("---")
                                     st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
-                                    st.dataframe(fallback_df, use_container_width=True, height=400)
+                                    st.dataframe(fallback_df, width="stretch", height=400)
 
                                     csv = fallback_df.to_csv(index=False)
                                     st.download_button(
@@ -319,7 +445,7 @@ def form_input():
                                         data=csv,
                                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                                         mime="text/csv",
-                                        use_container_width=True,
+                                        width="stretch",
                                     )
                                     progress_bar.progress(100)
                         except Exception as mongo_e:

@@ -55,13 +55,24 @@ class ScrapeReviews:
     def _looks_blocked(page_source: str) -> bool:
         if not page_source:
             return False
-        text = page_source.lower()
+
+        # Myntra pages often include JSON/config strings like `showLoginCaptcha:false` in scripts.
+        # Treating any occurrence of the substring "captcha" as a block causes false positives.
+        # Instead, inspect *visible* text only.
+        try:
+            soup = bs(page_source, "html.parser")
+            for tag in soup(["script", "style", "noscript"]):
+                tag.decompose()
+            text = soup.get_text(" ", strip=True).lower()
+        except Exception:
+            text = page_source.lower()
+
         return (
             "access denied" in text
-            or "captcha" in text
             or "verify you are a human" in text
             or "request blocked" in text
             or "site maintenance" in text
+            or "captcha" in text
         )
 
     def scrape_product_urls(self, product_name):
