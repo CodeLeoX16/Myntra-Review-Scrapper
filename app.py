@@ -266,7 +266,47 @@ def form_input():
                     
             except Exception as e:
                 progress_bar.progress(0)
-                st.error(f"❌ Error during scraping: {str(e)[:500]}")
+                error_text = str(e)
+                st.error(f"❌ Error during scraping: {error_text[:500]}")
+
+                # If Myntra blocks scraping on Streamlit Cloud, try a graceful fallback:
+                # show previously saved data from MongoDB (if available).
+                blocked_signals = (
+                    "captcha" in error_text.lower()
+                    or "access denied" in error_text.lower()
+                    or "site maintenance" in error_text.lower()
+                    or "blocked" in error_text.lower()
+                )
+                if blocked_signals:
+                    try:
+                        mongoio = MongoIO()
+                        existing = mongoio.get_reviews(product_name=product)
+                        if existing:
+                            fallback_df = pd.DataFrame(existing)
+                            if not fallback_df.empty:
+                                st.warning(
+                                    "Live scraping is blocked from this server. "
+                                    "Showing previously saved reviews from MongoDB instead."
+                                )
+                                st.session_state["data"] = True
+                                st.session_state["latest_scrapped_data"] = fallback_df
+
+                                st.markdown("---")
+                                st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
+                                st.dataframe(fallback_df, use_container_width=True, height=400)
+
+                                csv = fallback_df.to_csv(index=False)
+                                st.download_button(
+                                    label="📥 Download as CSV",
+                                    data=csv,
+                                    file_name=f"{product.replace(' ', '_')}_reviews.csv",
+                                    mime="text/csv",
+                                    use_container_width=True,
+                                )
+                                progress_bar.progress(100)
+                    except Exception:
+                        # If MongoDB is not configured or has no data, keep the original error only.
+                        pass
                 status_text.empty()
 
 
