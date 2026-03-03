@@ -1,12 +1,9 @@
-from flask import request
-from selenium import webdriver
-from selenium.webdriver.common.by import By
 from src.exception import CustomException
 from bs4 import BeautifulSoup as bs
 import pandas as pd
 import os, sys
 import time
-from selenium.webdriver.chrome.options import Options
+import shutil
 from urllib.parse import quote
 
 
@@ -14,13 +11,31 @@ class ScrapeReviews:
     def __init__(self,
                  product_name:str,
                  no_of_products:int):
+        # Lazy imports so Streamlit can boot even if Selenium isn't available
+        # (e.g., dependency install issues on deployment platforms).
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.chrome.service import Service
+
         options = Options()
-        # options.add_argument("--no-sandbox")
-        # options.add_argument("--disable-dev-shm-usage")
-        # options.add_argument('--headless')
+
+        # Streamlit Community Cloud runs on Linux where Chrome must be headless.
+        # Keep Windows behavior unchanged.
+        if os.name != "nt":
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+
+            chrome_bin = os.environ.get("CHROME_BIN") or shutil.which("chromium") or shutil.which("chromium-browser")
+            if chrome_bin:
+                options.binary_location = chrome_bin
+
+        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH") or shutil.which("chromedriver")
         
         # Start a new Chrome browser session
-        self.driver = webdriver.Chrome(options=options)
+        service = Service(executable_path=chromedriver_path) if chromedriver_path else Service()
+        self.driver = webdriver.Chrome(service=service, options=options)
 
         self.product_name = product_name
         self.no_of_products = no_of_products

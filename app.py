@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
-from src.scrapper.scrape import ScrapeReviews
 
 # Custom CSS for enhanced styling
 st.markdown("""
@@ -168,7 +167,7 @@ def form_input():
     btn_col1, btn_col2, btn_col3 = st.columns([2, 2, 1])
     
     with btn_col1:
-        scrape_button = st.button("🚀 Start Scraping", width='stretch', key="scrape_btn")
+        scrape_button = st.button("🚀 Start Scraping", use_container_width=True, key="scrape_btn")
     
     if scrape_button:
         if not product.strip():
@@ -184,6 +183,19 @@ def form_input():
             progress_bar.progress(15)
             
             try:
+                # Lazy import so the app can deploy even if Selenium
+                # dependencies fail to install on the platform.
+                try:
+                    from src.scrapper.scrape import ScrapeReviews
+                except ModuleNotFoundError as e:
+                    if e.name == "selenium":
+                        st.error(
+                            "Selenium is not installed in this environment. "
+                            "On Streamlit Cloud, ensure `requirements.txt` is committed at the repo root and rebuild the app (Clear cache + Reboot)."
+                        )
+                        return
+                    raise
+
                 scrapper = ScrapeReviews(
                     product_name=product,
                     no_of_products=int(no_of_products)
@@ -235,7 +247,7 @@ def form_input():
                     
                     st.markdown("---")
                     st.markdown("#### Data Preview")
-                    st.dataframe(scrapped_data, width='stretch', height=400)
+                    st.dataframe(scrapped_data, use_container_width=True, height=400)
                     
                     # Download button
                     csv = scrapped_data.to_csv(index=False)
@@ -244,7 +256,7 @@ def form_input():
                         data=csv,
                         file_name=f"{product.replace(' ', '_')}_reviews.csv",
                         mime="text/csv",
-                        width='stretch'
+                        use_container_width=True
                     )
                     
                 else:
