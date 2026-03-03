@@ -61,6 +61,7 @@ class ScrapeReviews:
             or "captcha" in text
             or "verify you are a human" in text
             or "request blocked" in text
+            or "site maintenance" in text
         )
 
     def scrape_product_urls(self, product_name):
@@ -96,6 +97,13 @@ class ScrapeReviews:
                     title = self.driver.title or ""
                 except Exception:
                     pass
+
+                if "site maintenance" in title.lower():
+                    raise Exception(
+                        "Myntra is responding with a 'Site Maintenance' page from this server. "
+                        "This usually means the site is unavailable or blocking cloud/datacenter traffic. "
+                        "Try running the scraper locally or from a network that Myntra allows."
+                    )
 
                 raise Exception(
                     "Timed out waiting for Myntra search results to load. "
