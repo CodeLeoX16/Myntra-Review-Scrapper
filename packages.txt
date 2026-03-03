@@ -1,4 +1,2 @@
-# System packages for Streamlit Community Cloud (Debian/Ubuntu)
-# Required for Selenium Chrome webdriver
 chromium
 chromium-driver
