@@ -86,8 +86,8 @@ This project provides a complete end-to-end solution for:
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/PWskills-DataScienceTeam/myntra-review-scrapper.git
-cd myntra-review-scrapper
+git clone https://github.com/CodeLeoX16/Myntra-Review-Scrapper.git
+cd Myntra-Review-Scrapper
 ```
 
 ### Step 2: Create Python Virtual Environment
@@ -112,10 +112,17 @@ source MyntraVenv/bin/activate
 pip install -r requirements.txt
 ```
 
+### Step 4: Run the App
+```bash
+streamlit run app.py
+```
+
+This repo uses Streamlit's built-in multipage support via the `pages/` folder.
+
 **Main Dependencies Installed:**
 - `streamlit==1.28.0` - Web framework for the dashboard
 - `selenium==4.15.2` - Browser automation for scraping
-- `bs4==0.0.1` - HTML parsing
+- `beautifulsoup4==4.12.3` - HTML parsing
 - `pandas` - Data manipulation
 - `plotly==5.18.0` - Interactive charts
 - `pymongo` - MongoDB connection (via database-connect)

@@ -1,19 +1,20 @@
 import pandas as pd
 from pymongo import MongoClient
+from pymongo.database import Database
 from pymongo.errors import ConfigurationError, ServerSelectionTimeoutError
 import os, sys
 import re
-from src.constants import *
+from src.constants import MONGODB_FALLBACK_URL_KEY, MONGODB_URL_KEY, MONGO_DATABASE_NAME
 from src.exception import CustomException
 
 
 class MongoIO:
-    mongo_client = None
-    mongo_db = None
+    mongo_client: MongoClient | None = None
+    mongo_db: Database | None = None
 
     def __init__(self):
         if MongoIO.mongo_client is None:
-            def _get_setting(key: str):
+            def _get_setting(key: str) -> str | None:
                 value = os.getenv(key)
                 if value:
                     return value

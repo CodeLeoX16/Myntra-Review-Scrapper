@@ -1,133 +1,29 @@
 import pandas as pd
 import streamlit as st
 import os
+from pathlib import Path
 from src.cloud_io import MongoIO
 from src.constants import SESSION_PRODUCT_KEY
 from src.utils import fetch_product_names_from_cloud
 
-# Custom CSS for enhanced styling
-st.markdown("""
-    <style>
-    /* Main app styling */
-    :root {
-        --primary-color: #FF6B6B;
-        --secondary-color: #4ECDC4;
-        --accent-color: #FFE66D;
-        --dark-bg: #1A1A2E;
-        --light-bg: #F7F7F7;
-    }
-    
-    [data-testid="stMainBlockContainer"] {
-        padding-top: 2rem;
-    }
-    
-    /* Title styling */
-    h1 {
-        color: #FF6B6B !important;
-        text-align: center !important;
-        font-size: 2.5rem !important;
-        margin-bottom: 0.5rem !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1) !important;
-    }
-    
-    h2 {
-        color: #4ECDC4 !important;
-        border-bottom: 3px solid #FFE66D !important;
-        padding-bottom: 0.5rem !important;
-    }
-    
-    /* Input fields styling */
-    .stTextInput > div > div > input,
-    .stNumberInput > div > div > input {
-        border-radius: 8px !important;
-        border: 2px solid #4ECDC4 !important;
-        padding: 0.7rem !important;
-    }
-    
-    /* Button styling */
-    .stButton > button {
-        background: linear-gradient(135deg, #FF6B6B 0%, #FF8E72 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.75rem 2rem !important;
-        font-weight: bold !important;
-        font-size: 1rem !important;
-        transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(255,107,107,0.3) !important;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(255,107,107,0.4) !important;
-    }
-    
-    /* Container styling */
-    .stContainer {
-        background: white !important;
-        border-radius: 12px !important;
-        padding: 2rem !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.07) !important;
-    }
-    
-    /* Success/Warning/Info messages */
-    .stAlert {
-        border-radius: 8px !important;
-    }
-    
-    [data-testid="stAlert"] {
-        padding: 1rem !important;
-        border-left: 4px solid !important;
-    }
-    
-    /* DataFrame styling */
-    [data-testid="stDataFrame"] {
-        border-radius: 8px !important;
-        overflow: hidden !important;
-    }
-    
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1A1A2E 0%, #16213E 100%) !important;
-    }
-    
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] h4,
-    [data-testid="stSidebar"] label {
-        color: white !important;
-    }
-    
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span,
-    [data-testid="stSidebar"] .stMarkdown {
-        color: #E8E8E8 !important;
-    }
-    
-    /* Sidebar checkboxes and inputs */
-    [data-testid="stSidebar"] .stCheckbox label,
-    [data-testid="stSidebar"] .stRadio label {
-        color: white !important;
-    }
-    
-    [data-testid="stSidebar"] input,
-    [data-testid="stSidebar"] select {
-        background-color: #2D3A4A !important;
-        color: white !important;
-        border: 2px solid #4ECDC4 !important;
-    }
-    
-    /* Stats cards */
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-        padding: 1.5rem !important;
-        border-radius: 10px !important;
-        color: white !important;
-        text-align: center !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important;
-    }
-    
-    </style>
-""", unsafe_allow_html=True)
+
+st.set_page_config(
+    page_title="Myntra Review Scraper",
+    page_icon="🛍️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+def _inject_css(path: str) -> None:
+    try:
+        css = Path(path).read_text(encoding="utf-8")
+    except Exception:
+        return
+    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+
+
+_inject_css("static/css/streamlit.css")
 
 # Header section with info
 col1, col2, col3 = st.columns([1, 2, 1])
@@ -141,10 +37,99 @@ if "data" not in st.session_state:
     st.session_state["data"] = False
 
 
-def form_input():
+def _get_setting(key: str) -> str | None:
+    value = os.getenv(key)
+    if value:
+        return value
+    try:
+        return st.secrets.get(key)  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
+def _cloud_read_only_mode() -> bool:
     # Streamlit Community Cloud runs on Linux; Myntra is commonly blocked there.
-    # In that environment we default to reading previously saved data from MongoDB.
-    cloud_read_only_mode = os.name != "nt" or os.getenv("FORCE_MONGODB_READ", "").strip() in {"1", "true", "True"}
+    # Default to MongoDB-read mode on non-Windows.
+    forced = (_get_setting("FORCE_MONGODB_READ") or "").strip().lower() in {"1", "true", "yes"}
+    return forced or os.name != "nt"
+
+
+def _render_reviews_table(df: pd.DataFrame, product_name: str, title: str) -> None:
+    st.markdown("---")
+    st.subheader(f"📈 {title} ({len(df)} reviews)")
+    st.dataframe(df, use_container_width=True, height=400)
+
+    csv = df.to_csv(index=False)
+    st.download_button(
+        label="📥 Download as CSV",
+        data=csv,
+        file_name=f"{product_name.replace(' ', '_')}_reviews.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+
+
+def _load_saved_reviews_from_mongodb(product_name: str) -> pd.DataFrame | None:
+    mongo_url = _get_setting("MONGODB_URL")
+    if not mongo_url:
+        st.info(
+            "To use the deployed app, set `MONGODB_URL` in Streamlit Cloud Secrets "
+            "(App settings → Secrets). Then the app can load previously saved reviews."
+        )
+        return None
+
+    mongoio = MongoIO()
+    existing = mongoio.get_reviews(product_name=product_name)
+    if not existing:
+        available: list[str]
+        try:
+            if mongoio.mongo_db is not None:
+                available = mongoio.mongo_db.list_collection_names()
+            else:
+                available = []
+        except Exception:
+            available = []
+
+        requested_collection = product_name.replace(" ", "_")
+        if not available:
+            st.warning(
+                "No saved reviews were found in MongoDB for this product name. "
+                "Also, no collections were found in the configured database, so either nothing has been saved yet "
+                "or this MongoDB user/URI does not have access to the expected database."
+            )
+            st.info(
+                "Checks: (1) In your local run, confirm you saw 'Data scraped and saved to MongoDB successfully!'. "
+                "(2) In MongoDB Atlas → Data Explorer, look for database 'myntra-reviews' and collections like 'blue_shirt'. "
+                "(3) Ensure the same `MONGODB_URL` (and optional `MONGODB_FALLBACK_URL`) is set in Streamlit Secrets."
+            )
+            return None
+
+        if requested_collection not in set(available):
+            shown = [name.replace("_", " ") for name in available[:25]]
+            st.warning(
+                "No saved reviews were found because this product name does not match any saved MongoDB collection. "
+                "Select a saved product from the dropdown (if available) or use one of the saved names shown below."
+            )
+            st.info(
+                f"Saved products found: {len(available)}\n\n" + "\n".join(f"- {p}" for p in shown)
+            )
+            return None
+
+        st.warning(
+            "No saved reviews were found in MongoDB for this product name. "
+            "Tip: run the scraper locally once to populate MongoDB, then refresh this app."
+        )
+        return None
+
+    df = pd.DataFrame(existing)
+    if df.empty:
+        st.warning("Saved MongoDB data exists but is empty for this product.")
+        return None
+    return df
+
+
+def form_input():
+    cloud_read_only_mode = _cloud_read_only_mode()
 
     # Create two columns for better layout
     col1, col2 = st.columns([2, 1])
@@ -189,6 +174,8 @@ def form_input():
             max_value=20,
             step=1,
             help="How many products to scrape (1-20)"
+            ,
+            disabled=cloud_read_only_mode,
         )
     
     st.markdown("---")
@@ -207,69 +194,15 @@ def form_input():
 
         # In cloud/read-only mode, skip Selenium scraping entirely.
         if cloud_read_only_mode:
-            mongo_url = os.getenv("MONGODB_URL")
-            if not mongo_url:
-                try:
-                    mongo_url = st.secrets.get("MONGODB_URL")
-                except Exception:
-                    mongo_url = None
-            if not mongo_url:
-                st.info(
-                    "To use the deployed app, set `MONGODB_URL` in Streamlit Cloud Secrets "
-                    "(App settings → Secrets). Then the app can load previously saved reviews."
-                )
-                return
-
             try:
-                mongoio = MongoIO()
-                existing = mongoio.get_reviews(product_name=product)
-                if not existing:
-                    try:
-                        if mongoio.mongo_db is not None:
-                            available = mongoio.mongo_db.list_collection_names()
-                        else:
-                            available = []
-                    except Exception:
-                        available = []
-
-                    requested_collection = product.replace(" ", "_")
-                    if available and requested_collection not in set(available):
-                        shown = [name.replace("_", " ") for name in available[:25]]
-                        st.warning(
-                            "No saved reviews were found because this product name does not match any saved MongoDB collection. "
-                            "Select a saved product from the dropdown (if available) or use one of the saved names shown below."
-                        )
-                        st.info(
-                            f"Saved products found: {len(available)}\n\n" + "\n".join(f"- {p}" for p in shown)
-                        )
-                    else:
-                        st.warning(
-                            "No saved reviews were found in MongoDB for this product name. "
-                            "Tip: run the scraper locally once to populate MongoDB, then refresh this app."
-                        )
-                    return
-
-                fallback_df = pd.DataFrame(existing)
-                if fallback_df.empty:
-                    st.warning("Saved MongoDB data exists but is empty for this product.")
+                fallback_df = _load_saved_reviews_from_mongodb(product)
+                if fallback_df is None:
                     return
 
                 st.session_state["data"] = True
                 st.session_state["latest_scrapped_data"] = fallback_df
                 st.session_state[SESSION_PRODUCT_KEY] = product
-
-                st.markdown("---")
-                st.subheader(f"📈 Saved Data ({len(fallback_df)} reviews)")
-                st.dataframe(fallback_df, use_container_width=True, height=400)
-
-                csv = fallback_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download as CSV",
-                    data=csv,
-                    file_name=f"{product.replace(' ', '_')}_reviews.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
+                _render_reviews_table(fallback_df, product, title="Saved Data")
                 return
             except Exception as mongo_e:
                 st.error(f"❌ Could not load from MongoDB: {str(mongo_e)[:300]}")
@@ -406,7 +339,16 @@ def form_input():
                                     available = []
 
                                 requested_collection = product.replace(" ", "_")
-                                if available and requested_collection not in set(available):
+                                if not available:
+                                    st.warning(
+                                        "Live scraping is blocked, and no collections were found in the configured MongoDB database. "
+                                        "This usually means MongoDB is pointing to a different cluster/user/db than the one you saved data into, "
+                                        "or nothing has been saved yet."
+                                    )
+                                    st.info(
+                                        "In Atlas Data Explorer, confirm database 'myntra-reviews' exists and contains collections for your products."
+                                    )
+                                elif requested_collection not in set(available):
                                     shown = [name.replace("_", " ") for name in available[:25]]
                                     st.warning(
                                         "Live scraping is blocked, and this product name does not match any saved MongoDB collection. "
