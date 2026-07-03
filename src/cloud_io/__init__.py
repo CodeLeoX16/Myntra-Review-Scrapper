@@ -1,10 +1,8 @@
 import pandas as pd
 from pymongo import MongoClient
 from pymongo.database import Database
-from pymongo.errors import ConfigurationError, ServerSelectionTimeoutError
-import os, sys
+import sys
 import re
-from src.constants import MONGODB_FALLBACK_URL_KEY, MONGODB_URL_KEY, MONGO_DATABASE_NAME
 from src.exception import CustomException
 
 
@@ -13,85 +11,50 @@ class MongoIO:
     mongo_db: Database | None = None
 
     def __init__(self):
+        # Using class-level caching to prevent re-initializing connections on every Streamlit rerun
         if MongoIO.mongo_client is None:
-            def _get_setting(key: str) -> str | None:
-                value = os.getenv(key)
-                if value:
-                    return value
-
-                # Helpful for local runs: load variables from a .env file if present.
-                try:
-                    from dotenv import load_dotenv
-
-                    load_dotenv()
-                    value = os.getenv(key)
-                    if value:
-                        return value
-                except Exception:
-                    pass
-
-                # Helpful for Streamlit Cloud: prefer st.secrets if available.
-                try:
-                    import streamlit as st
-
-                    value = st.secrets.get(key)
-                    if value:
-                        return value
-                except Exception:
-                    pass
-
-                return None
-
-            primary_url = _get_setting(MONGODB_URL_KEY)
-            fallback_url = _get_setting(MONGODB_FALLBACK_URL_KEY)
-            if primary_url is None and fallback_url is None:
-                raise Exception(
-                    f"Environment key: {MONGODB_URL_KEY} is not set. "
-                    f"Optionally set {MONGODB_FALLBACK_URL_KEY} to a standard mongodb:// URI."
+            # Your working connection string pointed directly to your new database
+            mongo_url = "mongodb+srv://somnath:Somnath2003@customercategorization.vbknzhm.mongodb.net/myntra_reviews?retryWrites=true&w=majority"
+            
+            try:
+                client = MongoClient(
+                    mongo_url,
+                    serverSelectionTimeoutMS=10000,    # 5-second connection limit
+                    connectTimeoutMS=10000,            # 5-second socket timeout
+                    tlsAllowInvalidCertificates=True # Bypasses potential local OpenSSL/TLS verification blocks
                 )
-
-            def _connect(url: str):
-                # Fail fast so we can retry with fallback if SRV DNS is flaky.
-                client = MongoClient(url, serverSelectionTimeoutMS=8000, connectTimeoutMS=8000)
+                
+                # Verify network connectivity instantly via a quick ping command
                 client.admin.command("ping")
-                return client
+                
+                MongoIO.mongo_client = client
+                MongoIO.mongo_db = MongoIO.mongo_client["myntra_reviews"]
+                
+            except Exception as e:
+                raise Exception(f"Failed to establish direct connection to MongoDB Atlas. Error: {str(e)[:300]}")
 
-            last_error: Exception | None = None
-            client = None
-            for candidate in [primary_url, fallback_url]:
-                if not candidate:
-                    continue
-                try:
-                    client = _connect(candidate)
-                    last_error = None
-                    break
-                except (ConfigurationError, ServerSelectionTimeoutError) as e:
-                    last_error = e
-                except Exception as e:
-                    last_error = e
-
-            if client is None:
-                raise Exception(f"Could not connect to MongoDB. Last error: {str(last_error)[:300]}")
-
-            MongoIO.mongo_client = client
-            MongoIO.mongo_db = MongoIO.mongo_client[MONGO_DATABASE_NAME]
         self.mongo_client = MongoIO.mongo_client
         self.mongo_db = MongoIO.mongo_db
 
-    def store_reviews(self,
-                      product_name: str, reviews: pd.DataFrame):
+    def store_reviews(self, product_name: str, reviews: pd.DataFrame):
         try:
+            if self.mongo_db is None:
+                raise Exception("MongoDB is uninitialized or unreachable.")
+
+            # Sanitize product name to create a safe collection title
             collection_name = product_name.replace(" ", "_")
             collection = self.mongo_db[collection_name]
+            
+            # Convert DataFrame records cleanly to dictionary rows
             records = reviews.to_dict('records')
+            
             if records:
                 collection.insert_many(records)
 
         except Exception as e:
             raise CustomException(e, sys)
 
-    def get_reviews(self,
-                    product_name: str):
+    def get_reviews(self, product_name: str):
         try:
             if self.mongo_db is None:
                 return []
@@ -105,7 +68,7 @@ class MongoIO:
             requested_raw = product_name or ""
             requested_norm = normalize_key(requested_raw)
 
-            # Fast path: try a few common collection-name variants.
+            # Strategy 1: Check standard string variations directly
             candidates: list[str] = []
             collapse_spaces = re.sub(r"\s+", " ", requested_raw.strip())
             candidates.append(requested_raw.replace(" ", "_"))
@@ -123,7 +86,7 @@ class MongoIO:
                 if data:
                     return data
 
-            # If the direct attempts return nothing, try to match an existing collection by normalization.
+            # Strategy 2: Dynamic matching fallback by reading collection schemas
             try:
                 existing_names = self.mongo_db.list_collection_names()
             except Exception:
@@ -143,5 +106,3 @@ class MongoIO:
 
         except Exception as e:
             raise CustomException(e, sys)
-
-

@@ -9,8 +9,8 @@ from urllib.parse import quote
 
 class ScrapeReviews:
     def __init__(self,
-                 product_name:str,
-                 no_of_products:int):
+                 product_name: str,
+                 no_of_products: int):
         # Lazy imports so Streamlit can boot even if Selenium isn't available
         # (e.g., dependency install issues on deployment platforms).
         from selenium import webdriver
@@ -82,14 +82,13 @@ class ScrapeReviews:
             from selenium.webdriver.support.wait import WebDriverWait
             from selenium.webdriver.support import expected_conditions as EC
 
-            search_string = product_name.replace(" ","-")
-            # no_of_products = int(self.request.form['prod_no'])
-
-            encoded_query = quote(search_string)
-            # Navigate to the URL
-            self.driver.get(
-                f"https://www.myntra.com/{search_string}?rawQuery={encoded_query}"
-            )
+            # Clean up spacing and encode safely for the query parameter
+            clean_query = product_name.strip()
+            encoded_query = quote(clean_query)
+            
+            # Navigating using the standard /search route to avoid 404 router mismatch
+            search_url = f"https://www.myntra.com/search?q={encoded_query}"
+            self.driver.get(search_url)
 
             try:
                 WebDriverWait(self.driver, 30).until(
@@ -174,11 +173,14 @@ class ScrapeReviews:
 
             self.product_title = title_h[0].text
 
+            self.product_rating_value = "No Rating"
             overallRating = prodRes_html.find_all(
                 "div", {"class": "index-overallRating"}
             )
             for i in overallRating:
                 self.product_rating_value = i.find("div").text
+
+            self.product_price = "No Price"
             price = prodRes_html.find_all("span", {"class": "pdp-price"})
             for i in price:
                 self.product_price = i.text
@@ -209,7 +211,7 @@ class ScrapeReviews:
         
     def scroll_to_load_reviews(self):
         # Change the window size to load more data
-        self.driver.set_window_size(1920, 1080)  # Example window size, adjust as needed
+        self.driver.set_window_size(1920, 1080)
 
         # Get the initial height of the page
         last_height = self.driver.execute_script("return document.body.scrollHeight")
@@ -218,7 +220,7 @@ class ScrapeReviews:
         while True:
             # Scroll down by a small amount
             self.driver.execute_script("window.scrollBy(0, 1000);")
-            time.sleep(3)  # Adjust this delay if needed
+            time.sleep(3)
             
             # Calculate the new height after scrolling
             new_height = self.driver.execute_script("return document.body.scrollHeight")
@@ -229,8 +231,6 @@ class ScrapeReviews:
             
             # Update the last height for the next iteration
             last_height = new_height
-
-
 
     def extract_products(self, product_reviews):
         try:
@@ -292,7 +292,7 @@ class ScrapeReviews:
                     "Name": name,
                     "Comment": comment,
                 }
-                reviews.append(mydict)  #  a list of all dictionary elements
+                reviews.append(mydict)
 
             review_data = pd.DataFrame(
                 reviews,
@@ -314,24 +314,22 @@ class ScrapeReviews:
                 raise
             raise CustomException(e, sys)
         
-    
     def skip_products(self, search_string, no_of_products, skip_index):
         product_urls: list = self.scrape_product_urls(product_name=search_string)
-
-        product_urls.pop(skip_index)
+        if product_urls and len(product_urls) > skip_index:
+            product_urls.pop(skip_index)
 
     def get_review_data(self) -> pd.DataFrame:
         try:
-            # search_string = self.request.form["content"].replace(" ", "-")
-            # no_of_products = int(self.request.form["prod_no"])
-
             product_urls = self.scrape_product_urls(product_name=self.product_name)
 
             product_details = []
-
             review_len = 0
 
-            while review_len < self.no_of_products and review_len < len(product_urls):
+            while review_len < self.no_of_products and product_urls:
+                if review_len >= len(product_urls):
+                    break
+                    
                 product_url = product_urls[review_len]
                 review = self.extract_reviews(product_url)
 
@@ -361,20 +359,9 @@ class ScrapeReviews:
                 )
 
             data = pd.concat(product_details, axis=0)
-            
             data.to_csv("data.csv", index=False)
             
-            return data   # For running Streamlit app, you can return the data as dataframe directly
-                
-            # For running Flask app, you can return the columns and values separately. Uncomment the following lines:
-
-            # columns = data.columns
-
-            # values = [[data.loc[i, col] for col in data.columns ] for i in range(len(data)) ]
-            
-            # return columns, values
-        
-    
+            return data
 
         except Exception as e:
             if isinstance(e, CustomException):
