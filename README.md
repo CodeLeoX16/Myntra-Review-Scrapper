@@ -4,6 +4,9 @@
 
 The **Myntra Review Scraper** is a Streamlit-based web application that extracts customer reviews from Myntra products and provides meaningful insights through review analysis. It collects product ratings, review text, and customer feedback, helping users understand customer sentiment and product performance.
 
+## Live Demo
+**Live Application:** [https://your-live-link.com](https://myntra-review-scrapper-h8ewjgrnqspobh5wcnkaxi.streamlit.app/generate_analysis)
+
 ## Features
 
 - Scrape customer reviews from Myntra
