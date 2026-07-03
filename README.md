@@ -1,55 +1,225 @@
-# Myntra Review Scraper Project
+# 🛍️ Myntra Review Scraper
 
-## Project Overview
+A web scraping application built using **Python**, **Selenium**, **BeautifulSoup**, and **Streamlit** that collects customer reviews from Myntra products and displays useful insights in an interactive dashboard.
 
-The **Myntra Review Scraper** is a Streamlit-based web application that extracts customer reviews from Myntra products and provides meaningful insights through review analysis. It collects product ratings, review text, and customer feedback, helping users understand customer sentiment and product performance.
+The project stores scraped reviews in **MongoDB Atlas** and allows users to analyze customer feedback, ratings, and review patterns through simple visualizations.
 
-## Live Demo
-**Live Application:** [https://your-live-link.com](https://myntra-review-scrapper-h8ewjgrnqspobh5wcnkaxi.streamlit.app/generate_analysis)
+---
 
-## Features
+## 🚀 Live Demo
+
+**Live Application**
+
+https://myntra-review-scrapper-h8ewjgrnqspobh5wcnkaxi.streamlit.app/generate_analysis
+
+---
+
+# 📌 Project Overview
+
+Customer reviews play an important role in understanding product quality and customer satisfaction. Reading hundreds of reviews manually is difficult and time-consuming.
+
+This project automates the process by scraping reviews from Myntra product pages, storing them in MongoDB, and presenting them in a clean dashboard for analysis.
+
+The application extracts:
+
+- Customer Reviews
+- Product Ratings
+- Reviewer Information
+- Review Text
+- Product Details
+
+The collected data can be used for customer sentiment analysis, product evaluation, and market research.
+
+---
+
+# ✨ Features
 
 - Scrape customer reviews from Myntra
-- Extract ratings and review content
-- Store scraped data in MongoDB
-- Interactive Streamlit dashboard
-- Visualize review data for better insights
-- Cross-platform ChromeDriver support using `chromedriver-binary`
+- Extract product ratings
+- Store reviews in MongoDB Atlas
+- Interactive Streamlit interface
+- Review analysis dashboard
+- Cross-platform ChromeDriver support
+- Automatic data storage
+- Easy-to-use interface
 
 ---
 
-## Local Setup
+# 🛠️ Tech Stack
 
-### 1. Clone the Repository
+### Programming Language
 
-```bash
-git clone https://github.com/PWskills-DataScienceTeam/myntra-review-scrapper.git
-cd myntra-review-scrapper
-```
+- Python
 
-### 2. Create and Activate a Conda Environment
+### Web Scraping
 
-```bash
-conda create -p ./env python=3.10 -y
-```
+- Selenium
+- BeautifulSoup4
 
-Activate the environment:
+### Dashboard
 
-**Windows**
+- Streamlit
 
-```bash
-conda activate ./env
-```
+### Database
 
-**Linux/macOS**
+- MongoDB Atlas
+- PyMongo
 
-```bash
-source activate ./env
+### Data Processing
+
+- Pandas
+
+### Visualization
+
+- Plotly
+
+### Environment Management
+
+- Python-dotenv
+
+### Browser Driver
+
+- chromedriver-binary
+
+### Version Control
+
+- Git
+- GitHub
+
+---
+
+# 📂 Project Structure
+
+```text
+Myntra-Review-Scraper/
+│
+├── app.py
+├── requirements.txt
+├── setup.py
+├── README.md
+│
+├── src/
+│   ├── scraper/
+│   ├── database/
+│   ├── visualization/
+│   └── utils/
+│
+├── templates/
+│
+├── static/
+│
+├── screenshots/
+│
+└── .env
 ```
 
 ---
 
-### 3. Install Required Packages
+# 🏗️ Project Architecture
+
+Place your architecture image inside the `flowchart/` or `screenshots/` folder.
+
+```text
+                User
+                  │
+                  ▼
+         Streamlit Web App
+                  │
+                  ▼
+          Selenium Web Driver
+                  │
+                  ▼
+        Myntra Product Website
+                  │
+                  ▼
+        BeautifulSoup Parser
+                  │
+                  ▼
+          Extract Review Data
+                  │
+                  ▼
+          MongoDB Atlas Database
+                  │
+                  ▼
+      Review Analysis Dashboard
+```
+
+If you have an architecture image:
+
+```markdown
+![Project Architecture](screenshots/project_architecture.png)
+```
+
+---
+
+# 📊 How It Works
+
+1. User enters a Myntra product URL.
+2. Selenium opens the product page.
+3. BeautifulSoup extracts customer reviews.
+4. Review data is cleaned.
+5. Reviews are stored in MongoDB Atlas.
+6. Streamlit displays the collected reviews.
+7. Charts and insights are generated for analysis.
+
+---
+
+# 📦 Dataset
+
+The dataset is generated dynamically by scraping customer reviews from Myntra product pages.
+
+Collected information includes:
+
+- Product Name
+- Rating
+- Review Title
+- Review Description
+- Reviewer Name
+- Date (if available)
+
+---
+
+# ⚙️ Installation
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/CodeLeoX16/Myntra-Review-Scraper.git
+```
+
+Move into the project folder.
+
+```bash
+cd Myntra-Review-Scraper
+```
+
+---
+
+## Create a Conda Environment
+
+```bash
+conda create -n myntra python=3.10 -y
+```
+
+---
+
+## Activate the Environment
+
+Windows
+
+```bash
+conda activate myntra
+```
+
+Linux/macOS
+
+```bash
+conda activate myntra
+```
+
+---
+
+## Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -57,76 +227,159 @@ pip install -r requirements.txt
 
 ---
 
-### 4. Configure Environment Variables
+# 🔐 Environment Variables
 
-Create a `.env` file in the project root and add your MongoDB connection string.
+Create a `.env` file in the project directory.
 
 ```env
 MONGODB_URL=your_mongodb_connection_string
 ```
 
+Example
+
+```env
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/
+```
+
 ---
 
-### 5. Run the Application
+# ▶️ Run the Application
 
 ```bash
 streamlit run app.py
 ```
 
-Open your browser and navigate to:
+The application will start at
 
 ```
 http://localhost:8501
 ```
 
+Open the above URL in your browser.
+
 ---
 
-## Project Dependencies
+# 🗄️ MongoDB Integration
 
-The project is built using the following technologies:
+MongoDB Atlas is used to store all scraped reviews.
 
-- **Streamlit** – Interactive web application framework
-- **Selenium** – Browser automation for web scraping
-- **BeautifulSoup4** – HTML parsing
-- **Pandas** – Data processing and analysis
-- **Plotly** – Interactive data visualization
-- **MongoDB** – NoSQL database for storing scraped reviews
-- **PyMongo** – MongoDB database connectivity
-- **chromedriver-binary** – Automatic ChromeDriver management
-- **Python-dotenv** – Environment variable management
+The application:
 
-Install all dependencies with:
+- Connects using PyMongo
+- Stores review data
+- Retrieves stored reviews
+- Displays review information in Streamlit
+
+---
+
+# 🌐 ChromeDriver Support
+
+The project uses **chromedriver-binary** instead of manually downloading ChromeDriver.
+
+Benefits:
+
+- Automatic driver management
+- Cross-platform support
+- Easier setup
+- No need to maintain separate executables
+
+---
+
+# 📊 Dashboard Features
+
+The Streamlit dashboard provides:
+
+- Customer review list
+- Product ratings
+- Review statistics
+- Interactive charts
+- Product insights
+
+---
+
+
+# 🧪 Future Improvements
+
+Some features that can be added in future versions:
+
+- Sentiment Analysis
+- AI-based Review Summarization
+- Word Cloud Generation
+- Export Reviews to CSV
+- Product Comparison
+- Review Filtering
+- REST API
+- User Authentication
+
+---
+
+# 📚 What I Learned
+
+While building this project, I gained practical experience with:
+
+- Web scraping using Selenium
+- HTML parsing using BeautifulSoup
+- MongoDB Atlas integration
+- Streamlit application development
+- Data visualization using Plotly
+- Environment variable management
+- Python project structure
+- Git and GitHub
+
+---
+
+# 🤝 Contributing
+
+Contributions are welcome.
+
+1. Fork the repository.
+
+2. Create a new branch.
 
 ```bash
-pip install -r requirements.txt
+git checkout -b feature-name
 ```
 
----
+3. Commit your changes.
 
-## ChromeDriver Support
+```bash
+git commit -m "Add new feature"
+```
 
-Instead of maintaining a separate `chromedriver.exe`, this project uses the **chromedriver-binary** package. This automatically provides the appropriate ChromeDriver binary, improving compatibility across different operating systems and simplifying project setup.
+4. Push your branch.
 
----
+```bash
+git push origin feature-name
+```
 
-## MongoDB Integration
-
-MongoDB is used as the backend database to store scraped review data. The project connects to MongoDB using **PyMongo**, allowing efficient storage and retrieval of customer reviews for further analysis and visualization.
-
----
-
-## Contributing
-
-Contributions are welcome! Feel free to fork the repository, improve the project, and submit a pull request.
-
-If you encounter any bugs or have feature suggestions, please open an issue in the repository.
+5. Open a Pull Request.
 
 ---
 
-## License
+# 📄 License
 
-This project is intended for educational and learning purposes.
+This project is created for learning and educational purposes.
 
 ---
 
-Happy Scraping! 🚀
+# 👨‍💻 Author
+
+## Somnath Bhunia
+
+Computer Science Engineering Student
+
+**GitHub**
+
+https://github.com/CodeLeoX16
+
+**LinkedIn**
+
+[https://www.linkedin.com/in/Connect Linkdin/](https://www.linkedin.com/in/somnath-bhunia-3b300b328/)
+
+---
+
+# ⭐ Support
+
+If you found this project useful, please consider giving it a ⭐ on GitHub.
+
+Thank you for visiting this repository!
